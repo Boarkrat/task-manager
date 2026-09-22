@@ -22,5 +22,5 @@
 
 1. Клонировать репозиторий:
    ```bash
-   git clone <ссылка-на-ваш-репозиторий>
+   git clone github.com/Boarkrat/task-manager
    cd task-manager
