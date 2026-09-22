@@ -1,0 +1,370 @@
+﻿<!DOCTYPE html>
+<html lang="ru" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .fab-btn { position: fixed; bottom: 70px; right: 20px; z-index: 1000; border-radius: 50%; width: 56px; height: 56px; font-size: 24px; display: flex; align-items: center; justify-content: center; }
+        .mobile-bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bs-body-bg); border-top: 1px solid var(--bs-border-color); z-index: 999; display: flex; justify-content: space-around; padding: 8px 0; }
+        body { padding-bottom: 70px; }
+        .subtask-list { list-style: none; padding-left: 0; font-size: 0.9rem; }
+        
+        [data-bs-theme="dark"] .card, 
+        [data-bs-theme="dark"] .list-group-item {
+            border-color: #495057 !important;
+        }
+        [data-bs-theme="dark"] .bg-overdue {
+            background-color: #411217 !important;
+            border-color: #842029 !important;
+        }
+    </style>
+</head>
+<body class="bg-body-tertiary">
+
+    <!-- Навигационная панель -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4 shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/"><i class="bi bi-check2-square"></i> Task Manager</a>
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-white d-none d-sm-inline">Привет, <strong>{{ session.username }}</strong>!</span>
+                <a href="/categories" class="btn btn-outline-light btn-sm"><i class="bi bi-tags"></i> Категории</a>
+                <button onclick="toggleTheme()" class="btn btn-outline-light btn-sm"><i class="bi bi-moon-stars"></i></button>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm"><i class="bi bi-box-arrow-right"></i> Выйти</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 900px;">
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for msg in messages %}
+              <div class="alert alert-info alert-dismissible fade show" role="alert">
+                {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <!-- Настраиваемый Pomodoro Таймер -->
+        <div class="card mb-4 shadow-sm border">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <strong class="fs-5"><i class="bi bi-clock-history text-primary"></i> Pomodoro:</strong>
+                        <span id="pomoTimer" class="fs-3 fw-bold text-primary ms-2">25:00</span>
+                    </div>
+                    
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="input-group input-group-sm" style="width: 170px;">
+                            <input type="number" id="pomoMins" class="form-control" value="25" min="0" max="180" title="Минуты">
+                            <span class="input-group-text">:</span>
+                            <input type="number" id="pomoSecs" class="form-control" value="0" min="0" max="59" title="Секунды">
+                            <button onclick="applyCustomPomo()" class="btn btn-outline-secondary" title="Применить">OK</button>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button onclick="setPomoPreset(25, 0)" class="btn btn-outline-primary">25м</button>
+                            <button onclick="setPomoPreset(45, 0)" class="btn btn-outline-primary">45м</button>
+                            <button onclick="setPomoPreset(5, 0)" class="btn btn-outline-success">5м перерыв</button>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button onclick="startPomo()" class="btn btn-success"><i class="bi bi-play-fill"></i> Старт</button>
+                            <button onclick="resetPomo()" class="btn btn-secondary"><i class="bi bi-arrow-counterclockwise"></i> Сброс</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Форма добавления задачи с описанием -->
+        <div class="card mb-4 shadow-sm border" id="addFormCard">
+            <div class="card-body">
+                <form action="/add" method="POST" class="row g-2">
+                    <div class="col-md-5">
+                        <input type="text" name="title" class="form-control" placeholder="Заголовок задачи..." required>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="category_id" class="form-select">
+                            <option value="">Без категории</option>
+                            {% for c in categories %}
+                            <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="priority" class="form-select">
+                            <option value="Низкий">Низкий</option>
+                            <option value="Средний" selected>Средний</option>
+                            <option value="Высокий">Высокий</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="date" name="due_date" class="form-control">
+                    </div>
+                    <div class="col-12 mt-2">
+                        <textarea name="description" class="form-control form-control-sm" rows="2" placeholder="Подробное описание задачи (опционально)..."></textarea>
+                    </div>
+                    <div class="col-12 text-end mt-2">
+                        <button type="submit" class="btn btn-success px-4">+ Добавить задачу</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Поиск, Фильтры и Импорт/Экспорт -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="btn-group btn-group-sm">
+                <a href="/?filter=all" class="btn btn-outline-primary {% if current_filter == 'all' %}active{% endif %}">Все</a>
+                <a href="/?filter=active" class="btn btn-outline-primary {% if current_filter == 'active' %}active{% endif %}">Активные</a>
+                <a href="/?filter=completed" class="btn btn-outline-primary {% if current_filter == 'completed' %}active{% endif %}">Завершённые</a>
+            </div>
+
+            <form action="/" method="GET" class="d-flex gap-1" style="max-width: 280px;">
+                <input type="hidden" name="filter" value="{{ current_filter }}">
+                <input type="text" name="q" value="{{ query }}" class="form-control form-control-sm" placeholder="Поиск по задачам и описанию...">
+                <button type="submit" class="btn btn-sm btn-secondary"><i class="bi bi-search"></i></button>
+            </form>
+
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-download"></i> Резервная копия
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="/export/json">Скачать JSON</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form action="/import" method="POST" enctype="multipart/form-data" class="px-3 py-1">
+                            <label class="form-label text-muted small mb-1">Восстановить из JSON</label>
+                            <input type="file" name="file" accept=".json" class="form-control form-control-sm mb-1" required>
+                            <button type="submit" class="btn btn-primary btn-sm w-100">Импортировать</button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Список задач -->
+        <div class="list-group mb-4 shadow-sm">
+            {% for task in tasks %}
+            <div class="list-group-item list-group-item-action p-3 {% if task.is_overdue %}bg-overdue bg-danger-subtle border-danger{% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="me-auto w-100">
+                        <div class="d-flex align-items-center gap-2">
+                            <a href="/toggle/{{ task.id }}" class="text-decoration-none fs-5">
+                                {% if task.done %}
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                {% else %}
+                                    <i class="bi bi-circle text-secondary"></i>
+                                {% endif %}
+                            </a>
+                            <span class="fs-5 fw-semibold {% if task.done %}text-decoration-line-through text-muted{% endif %}">
+                                {{ task.title }}
+                            </span>
+                        </div>
+
+                        {% if task.description %}
+                        <div class="text-secondary small mt-1 ms-4 me-3">
+                            {{ task.description }}
+                        </div>
+                        {% endif %}
+
+                        <!-- Чек-лист (Подзадачи) -->
+                        <div class="mt-3 ms-4">
+                            <ul class="subtask-list mb-1">
+                                {% for sub in task.subtasks %}
+                                <li class="d-flex align-items-center gap-2 mb-1">
+                                    <a href="/subtask/toggle/{{ sub.id }}" class="text-decoration-none text-body">
+                                        {% if sub.done %}
+                                            <i class="bi bi-check-square-fill text-success"></i> <span class="text-decoration-line-through text-muted">{{ sub.title }}</span>
+                                        {% else %}
+                                            <i class="bi bi-square text-secondary"></i> {{ sub.title }}
+                                        {% endif %}
+                                    </a>
+                                    <a href="/subtask/delete/{{ sub.id }}" class="text-danger small opacity-50 opacity-100-hover"><i class="bi bi-x"></i></a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            
+                            <form action="/task/{{ task.id }}/subtask/add" method="POST" class="d-flex gap-1 mt-1" style="max-width: 320px;">
+                                <input type="text" name="subtask_title" class="form-control form-control-sm" placeholder="+ Добавить подзадачу..." required>
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">+</button>
+                            </form>
+                        </div>
+
+                        <!-- Метаданные -->
+                        <div class="small text-muted mt-2 ms-4">
+                            {% if task.category_name %}
+                            <span class="badge me-1" style="background-color: {{ task.category_color }}">{{ task.category_name }}</span>
+                            {% endif %}
+                            
+                            <span class="badge me-1 {% if task.priority == 'Высокий' %}bg-danger{% elif task.priority == 'Средний' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {{ task.priority }}
+                            </span>
+
+                            {% if task.due_date %}
+                            <span class="badge {% if task.is_overdue %}bg-danger text-white{% else %}bg-body-secondary text-body border{% endif %}">
+                                <i class="bi bi-calendar-event"></i> {{ task.due_date }}
+                                {% if task.is_overdue %} (ПРОСРОЧЕНО){% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-1">
+                        <button type="button" class="btn btn-outline-primary btn-sm border-0" data-bs-toggle="modal" data-bs-target="#editModal{{ task.id }}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <a href="/delete/{{ task.id }}" class="btn btn-outline-danger btn-sm border-0"><i class="bi bi-trash"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Модальное окно редактирования -->
+            <div class="modal fade" id="editModal{{ task.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form action="/edit/{{ task.id }}" method="POST">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Редактирование задачи</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label font-weight-bold">Заголовок</label>
+                                    <input type="text" name="title" class="form-control" value="{{ task.title }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Описание</label>
+                                    <textarea name="description" class="form-control" rows="3">{{ task.description or '' }}</textarea>
+                                </div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Приоритет</label>
+                                        <select name="priority" class="form-select">
+                                            <option value="Низкий" {% if task.priority == 'Низкий' %}selected{% endif %}>Низкий</option>
+                                            <option value="Средний" {% if task.priority == 'Средний' %}selected{% endif %}>Средний</option>
+                                            <option value="Высокий" {% if task.priority == 'Высокий' %}selected{% endif %}>Высокий</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Категория</label>
+                                        <select name="category_id" class="form-select">
+                                            <option value="">Без категории</option>
+                                            {% for c in categories %}
+                                            <option value="{{ c.id }}" {% if task.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Срок выполнения</label>
+                                    <input type="date" name="due_date" class="form-control" value="{{ task.due_date or '' }}">
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                <button type="submit" class="btn btn-primary">Сохранить</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            {% else %}
+            <div class="list-group-item text-center text-muted py-4">Задач пока нет.</div>
+            {% endfor %}
+        </div>
+
+        <!-- Пагинация -->
+        {% if total_pages > 1 %}
+        <nav class="d-flex justify-content-center">
+            <ul class="pagination">
+                {% for p in range(1, total_pages + 1) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="/?page={{ p }}&filter={{ current_filter }}&q={{ query }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+
+    <!-- Мобильная кнопка FAB -->
+    <a href="#addFormCard" class="btn btn-primary fab-btn shadow d-md-none">+</a>
+
+    <!-- Мобильное нижнее меню -->
+    <div class="mobile-bottom-nav d-md-none">
+        <a href="/" class="btn btn-link text-decoration-none"><i class="bi bi-list-task"></i> Задачи</a>
+        <a href="/categories" class="btn btn-link text-decoration-none"><i class="bi bi-tags"></i> Категории</a>
+        <button onclick="toggleTheme()" class="btn btn-link text-decoration-none"><i class="bi bi-moon"></i> Тема</button>
+    </div>
+
+    <script>
+    function toggleTheme() {
+        const html = document.documentElement;
+        const newTheme = html.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-bs-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        if ("Notification" in window && Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+    });
+
+    // Настраиваемый Pomodoro
+    let timer, defaultTime = 1500, timeLeft = 1500;
+    
+    function applyCustomPomo() {
+        const m = parseInt(document.getElementById('pomoMins').value) || 0;
+        const s = parseInt(document.getElementById('pomoSecs').value) || 0;
+        defaultTime = (m * 60) + s;
+        resetPomo();
+    }
+
+    function setPomoPreset(m, s) {
+        document.getElementById('pomoMins').value = m;
+        document.getElementById('pomoSecs').value = s;
+        applyCustomPomo();
+    }
+
+    function updateTimerDisplay() {
+        const m = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+        const s = String(timeLeft % 60).padStart(2, '0');
+        document.getElementById('pomoTimer').textContent = `${m}:${s}`;
+    }
+
+    function startPomo() {
+        if (timer) return;
+        timer = setInterval(() => {
+            if (timeLeft > 0) {
+                timeLeft--;
+                updateTimerDisplay();
+            } else {
+                clearInterval(timer);
+                timer = null;
+                if (Notification.permission === "granted") {
+                    new Notification("Pomodoro!", { body: "Время вышло!" });
+                } else {
+                    alert("Время вышло!");
+                }
+            }
+        }, 1000);
+    }
+
+    function resetPomo() {
+        clearInterval(timer);
+        timer = null;
+        timeLeft = defaultTime;
+        updateTimerDisplay();
+    }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

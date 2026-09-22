@@ -1,0 +1,93 @@
+﻿<!DOCTYPE html>
+<html lang="ru" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактирование задачи</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-body-tertiary">
+<div class="container py-4" style="max-width: 650px;">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="card-title mb-0">Редактировать задачу</h4>
+            <a href="/" class="btn btn-outline-light btn-sm">Закрыть</a>
+        </div>
+        <div class="card-body p-4">
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Название</label>
+                    <input type="text" name="title" class="form-control" value="{{ task.title }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Описание</label>
+                    <textarea name="description" class="form-control" rows="2">{{ task.description or '' }}</textarea>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Категория</label>
+                        <select name="category_id" class="form-select">
+                            <option value="">Без категории</option>
+                            {% for c in categories %}
+                            <option value="{{ c.id }}" {% if task.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Приоритет</label>
+                        <select name="priority" class="form-select">
+                            <option value="Низкий" {% if task.priority == 'Низкий' %}selected{% endif %}>Низкий</option>
+                            <option value="Средний" {% if task.priority == 'Средний' %}selected{% endif %}>Средний</option>
+                            <option value="Высокий" {% if task.priority == 'Высокий' %}selected{% endif %}>Высокий</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Срок</label>
+                        <input type="date" name="due_date" class="form-control" value="{{ task.due_date or '' }}">
+                    </div>
+                </div>
+
+                <!-- Подзадачи (Чек-лист) -->
+                <div class="border-top pt-3 mt-4">
+                    <label class="form-label fw-bold">Подзадачи (Чек-лист)</label>
+                    <div class="input-group mb-2">
+                        <input type="text" name="new_subtask" class="form-control" placeholder="+ Добавить подзадачу...">
+                        <button class="btn btn-outline-success" type="submit">Добавить</button>
+                    </div>
+
+                    <ul class="list-group mb-3">
+                        {% for st in subtasks %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <a href="{{ url_for('toggle_subtask', subtask_id=st.id) }}" class="btn btn-sm me-2 {% if st.done %}btn-success{% else %}btn-outline-secondary{% endif %}">
+                                    {% if st.done %}✓{% else %}○{% endif %}
+                                </a>
+                                <span class="{% if st.done %}text-decoration-line-through text-muted{% endif %}">{{ st.title }}</span>
+                            </div>
+                            <a href="{{ url_for('delete_subtask', subtask_id=st.id) }}" class="btn btn-link text-danger p-0">🗑️</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div class="d-flex justify-content-between pt-3 border-top">
+                    <a href="/" class="btn btn-secondary">На главную</a>
+                    <button type="submit" class="btn btn-success">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+    });
+</script>
+</body>
+</html>
